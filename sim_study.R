@@ -1,37 +1,4 @@
 # Model 1 ###################################################################
-# piecewise smooth step function
-# x         inputs to at which to evaluate function
-# values    vector of length L
-# breaks    vector of length L-1
-# delta     double, spacing around breaks for cubic spline
-piecewise_smooth_step <- function(x, values, breaks, delta = 0.025) {
-  coefs <- matrix(nrow = length(breaks), ncol = 4)
-  for (i in 1:length(breaks)) {
-    left <- (breaks[i] - delta/2); right <- (breaks[i] + delta/2)
-    A <- matrix(c(
-      left^3, left^2, left, 1,
-      right^3, right^2, right, 1,
-      3 * left^2, 2 * left, 1, 0,
-      3 * right^2, 2 * right, 1, 0
-    ), nrow = 4, ncol = 4, byrow = TRUE)
-    coefs[i, ] <- solve(A, c(values[i], values[i + 1], 0, 0))
-  }
-  y <- rep(values[length(values)], length(x))
-  marks <- sort(c(0, breaks - (delta/2), breaks + (delta/2), 0.5))
-  for (i in 1:length(breaks)) {
-    ind <- 2 * (i - 1) + 1
-    y[x >= marks[ind] & x < marks[ind + 1]] <- values[i]
-    x_gap <- x[x >= marks[ind + 1] & x < marks[ind + 2]]
-    y[x %in% x_gap] <- matrix(c(
-      x_gap^3, x_gap^2, x_gap, rep(1, length(x_gap))
-    ), ncol = 4) %*% coefs[i, ]
-  }
-  return(y)
-}
-
-# generate data from model 1
-# nrep - number of replicates per cluster
-# len - length of realizations
 model1 <- function(nrep, len) {
   # locations of marginal breakpoints
   breaks <- matrix(c(
@@ -70,15 +37,6 @@ model1 <- function(nrep, len) {
 }
 
 # Model 2 ####
-# ar2 spectrum
-ar2_spec <- function(freq, phi1, phi2, sd) {
-  sd^2 / (1 + phi1^2 + phi2^2 -
-            2 * phi1 * (1 - phi2) * cos(2 * pi * freq) -
-            2 * phi2 * cos(4 * pi * freq))
-}
-
-# nrep:         number of replicates per subpopulation
-# len:          length of time series realizations
 # peaks:        vector of 3 marginal peak locations
 # bw:           vector of 3 marginal bandwidths
 model2 <- function(nrep, len, peaks, bw, sd = 2) {
@@ -128,51 +86,110 @@ model2c <- function(nrep, len) {
   return(model2(nrep, len, peaks, bw))
 }
 
-# Model 3 ###################################################################
-# AR(1) theoretical spectrum
-# freq - frequencies to evaluate on
-# phi1 - double; autoregressive parameter
-# sd - positive double; standard deviation of the innovation process
+# Model 3 ####
+# model3 <- function(nrep, len) {
+#   phi1_lower <- c(0.35, 0.85)
+#   phi1_upper <- c(0.45, 0.95)
+#   labels <- rep(1:2, each = nrep)
+#   freq <- seq(0, 0.5, length = 250)
+#   spec <- matrix(nrow = 250, ncol = 2 * nrep)
+#   x <- matrix(nrow = len, ncol = 2 * nrep)
+#   for(i in 1:nrep) {
+#     phi1_rep <- runif(length(phi1_lower), phi1_lower, phi1_upper)
+#     spec[, i] <- ar1_spec(freq, phi1_rep[1], 1)
+#     spec[, nrep + i] <- ar1_spec(freq, phi1_rep[2], 1)
+#     x[, i] <- arima.sim(list(ar = phi1_rep[1]), n = len, sd = 1)
+#     x[, nrep + i] <- arima.sim(list(ar = phi1_rep[2]), n = len, sd = 1)
+#   }
+#   mtout <- fbam::sine_mt(x)
+#   return(list(x = x, labels = labels, freq = freq, spec = spec,
+#               mtfreq = mtout$mtfreq, mtspec = mtout$mtspec))
+# }
+
+model3 <- function(nrep, len) {
+  freq <- seq(0, 0.5, length = 250)
+
+  # ar1 processes
+  x <- matrix(nrow = len, ncol = 3 * nrep)
+  xspec <- matrix(nrow = 250, ncol = 3 * nrep)
+  for (i in 1:nrep) {
+    phi_rep <- rep(0.935, 3)
+    xspec[, i] <- ar1_spec(freq, phi_rep[1], 1)
+    xspec[, nrep + i] <- ar1_spec(freq, phi_rep[2], 1)
+    xspec[, 2 * nrep + i] <- ar1_spec(freq, phi_rep[3], 1)
+    x[, i] <- arima.sim(list(ar = phi_rep[1]), n = len, sd = 1)
+    x[, nrep + i] <- arima.sim(list(ar = phi_rep[2]), n = len, sd = 1)
+    x[, 2 * nrep + i] <- arima.sim(list(ar = phi_rep[3]), n = len, sd = 1)
+  }
+
+  # ar2 processes
+  y <- matrix(nrow = len, ncol = 3 * nrep)
+  yspec <- matrix(nrow = 250, ncol = 3 * nrep)
+  for (i in 1:nrep) {
+    peaks_rep <- c(0.2, 0.25, 0.3) + runif(3, -0.01, 0.01)
+    bw_rep <- c(0.05, 0.065, 0.08) #+ runif(3, -0.005, 0.005)
+    phi1 <- 2 * cos(2 * pi * peaks_rep) * exp(-bw_rep)
+    phi2 <- -exp(-2 * bw_rep)
+    yspec[, i] <- ar2_spec(freq, phi1[1], phi2[1], 1)
+    yspec[, nrep + i] <- ar2_spec(freq, phi1[2], phi2[2], 1)
+    yspec[, 2 * nrep + i] <- ar2_spec(freq, phi1[3], phi2[3], 1)
+    y[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 1.5)
+    y[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 1.5)
+    y[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 1.5)
+  }
+
+  # add ar1 and ar2 processes
+  labels <- rep(1:3, each = nrep)
+  z <- x + y
+  zspec <- xspec + yspec
+  mtout <- fbam::sine_mt(z)
+  return(list(x = z, labels = labels, freq = freq, spec = zspec,
+              mtfreq = mtout$mtfreq, mtspec = mtout$mtspec))
+}
+
+# Utility Functions ####
+# piecewise smooth step function
+# x         inputs to at which to evaluate function
+# values    vector of length L
+# breaks    vector of length L-1
+# delta     double, spacing around breaks for cubic spline
+piecewise_smooth_step <- function(x, values, breaks, delta = 0.025) {
+  coefs <- matrix(nrow = length(breaks), ncol = 4)
+  for (i in 1:length(breaks)) {
+    left <- (breaks[i] - delta/2); right <- (breaks[i] + delta/2)
+    A <- matrix(c(
+      left^3, left^2, left, 1,
+      right^3, right^2, right, 1,
+      3 * left^2, 2 * left, 1, 0,
+      3 * right^2, 2 * right, 1, 0
+    ), nrow = 4, ncol = 4, byrow = TRUE)
+    coefs[i, ] <- solve(A, c(values[i], values[i + 1], 0, 0))
+  }
+  y <- rep(values[length(values)], length(x))
+  marks <- sort(c(0, breaks - (delta/2), breaks + (delta/2), 0.5))
+  for (i in 1:length(breaks)) {
+    ind <- 2 * (i - 1) + 1
+    y[x >= marks[ind] & x < marks[ind + 1]] <- values[i]
+    x_gap <- x[x >= marks[ind + 1] & x < marks[ind + 2]]
+    y[x %in% x_gap] <- matrix(c(
+      x_gap^3, x_gap^2, x_gap, rep(1, length(x_gap))
+    ), ncol = 4) %*% coefs[i, ]
+  }
+  return(y)
+}
+
+# ar1 spectrum
 ar1_spec <- function(x, phi, sd) {
   sd^2 / (1 + phi^2 - 2 * phi * cos(2 * pi * x))
 }
 
-# model3 - three clusters of AR(1) processes that mimic gait data
-model3 <- function(nrep, len) {
-  # model parameters
-  phi1_lower <- c(0.3, 0.3, 0.7); phi1_upper <- c(0.4, 0.4, 0.75)
-  sd1_lower <- sqrt(c(0.5, 1.75, 1.25)); sd1_upper <- sqrt(c(1, 2.25, 1.5))
-
-  # theoretical spectra/ts data
-  labels <- rep(1:3, each = nrep)
-  freq <- seq(0, 0.5, length = 250)
-  spec <- matrix(nrow = 250, ncol = 3 * nrep)
-  x <- matrix(nrow = len, ncol = 3 * nrep)
-
-  for(i in 1:nrep) {
-    # draw realizations of each of the parameters
-    phi1_ <- runif(length(phi1_lower), phi1_lower, phi1_upper)
-    sd_ <- runif(length(sd1_lower), sd1_lower, sd1_upper)
-
-    # theoretical spectra
-    spec[, i] <- ar1_spec(freq, phi1_[1], sd_[1])
-    spec[, nrep + i] <- ar1_spec(freq, phi1_[2], sd_[2])
-    spec[, 2*nrep + i] <- ar1_spec(freq, phi1_[3], sd_[3])
-
-    # generate time series realization of length len
-    x[, i] <- arima.sim(list(ar = phi1_[1]), n = len, sd = sd_[1])
-    x[, nrep + i] <- arima.sim(list(ar = phi1_[2]), n = len, sd = sd_[2])
-    x[, 2 * nrep + i] <- arima.sim(list(ar = phi1_[3]), n = len, sd = sd_[3])
-  }
-
-  ## multitaper spectral estimates with n_tapers = floor(sqrt(len))
-  mtout <- fbam::sine_mt(x)
-
-  return(list(x = x, labels = labels, freq = freq, spec = spec,
-              mtfreq = mtout$mtfreq, mtspec = mtout$mtspec))
+# ar2 spectrum
+ar2_spec <- function(freq, phi1, phi2, sd) {
+  sd^2 / (1 + phi1^2 + phi2^2 -
+            2 * phi1 * (1 - phi2) * cos(2 * pi * freq) -
+            2 * phi2 * cos(4 * pi * freq))
 }
 
-# Simulate from underlying spectrum ####
 # simulate time series realization from a single theoretical spectrum
 # See: Guo and Dai (2006) Multivariate time-dependent spectral analysis using
 # Cholesky decomposition
