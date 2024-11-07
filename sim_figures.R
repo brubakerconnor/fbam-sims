@@ -1,6 +1,6 @@
 rm(list = ls())
 set.seed(6)
-source("sim_study.R")
+source("sim_models.R")
 
 if (!dir.exists('figures/')) dir.create('figures/')
 
