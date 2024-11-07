@@ -113,29 +113,32 @@ model3 <- function(nrep, len) {
   x <- matrix(nrow = len, ncol = 3 * nrep)
   xspec <- matrix(nrow = 250, ncol = 3 * nrep)
   for (i in 1:nrep) {
-    phi_rep <- rep(0.935, 3)
-    xspec[, i] <- ar1_spec(freq, phi_rep[1], 1)
-    xspec[, nrep + i] <- ar1_spec(freq, phi_rep[2], 1)
-    xspec[, 2 * nrep + i] <- ar1_spec(freq, phi_rep[3], 1)
-    x[, i] <- arima.sim(list(ar = phi_rep[1]), n = len, sd = 1)
-    x[, nrep + i] <- arima.sim(list(ar = phi_rep[2]), n = len, sd = 1)
-    x[, 2 * nrep + i] <- arima.sim(list(ar = phi_rep[3]), n = len, sd = 1)
+    peaks_rep <- rep(0, 3)
+    bw_rep <- rep(0.5, 3) + runif(3, -0.02, 0.02)
+    phi1 <- 2 * cos(2 * pi * peaks_rep) * exp(-bw_rep)
+    phi2 <- -exp(-2 * bw_rep)
+    xspec[, i] <- ar2_spec(freq, phi1[1], phi2[1], 1)
+    xspec[, nrep + i] <- ar2_spec(freq, phi1[2], phi2[2], 1)
+    xspec[, 2 * nrep + i] <- ar2_spec(freq, phi1[3], phi2[3], 1)
+    x[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 2.5)
+    x[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 2.5)
+    x[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 2.5)
   }
 
   # ar2 processes
   y <- matrix(nrow = len, ncol = 3 * nrep)
   yspec <- matrix(nrow = 250, ncol = 3 * nrep)
   for (i in 1:nrep) {
-    peaks_rep <- c(0.2, 0.25, 0.3) + runif(3, -0.01, 0.01)
-    bw_rep <- c(0.05, 0.065, 0.08) #+ runif(3, -0.005, 0.005)
+    peaks_rep <- c(0.2, 0.26, 0.32) + runif(3, -0.015, 0.015)
+    bw_rep <- c(0.05, 0.065, 0.095) #+ runif(3, -0.005, 0.005)
     phi1 <- 2 * cos(2 * pi * peaks_rep) * exp(-bw_rep)
     phi2 <- -exp(-2 * bw_rep)
     yspec[, i] <- ar2_spec(freq, phi1[1], phi2[1], 1)
     yspec[, nrep + i] <- ar2_spec(freq, phi1[2], phi2[2], 1)
     yspec[, 2 * nrep + i] <- ar2_spec(freq, phi1[3], phi2[3], 1)
-    y[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 1.5)
-    y[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 1.5)
-    y[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 1.5)
+    y[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 2)
+    y[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 2)
+    y[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 2)
   }
 
   # add ar1 and ar2 processes
@@ -178,16 +181,21 @@ piecewise_smooth_step <- function(x, values, breaks, delta = 0.025) {
   return(y)
 }
 
+# ma1 spectrum
+ma1_spec <- function(x, theta, sd) {
+  sd^2 * (1 + theta^2 + 2 * theta * cos(2 * pi * x))
+}
+
 # ar1 spectrum
 ar1_spec <- function(x, phi, sd) {
   sd^2 / (1 + phi^2 - 2 * phi * cos(2 * pi * x))
 }
 
 # ar2 spectrum
-ar2_spec <- function(freq, phi1, phi2, sd) {
+ar2_spec <- function(x, phi1, phi2, sd) {
   sd^2 / (1 + phi1^2 + phi2^2 -
-            2 * phi1 * (1 - phi2) * cos(2 * pi * freq) -
-            2 * phi2 * cos(4 * pi * freq))
+            2 * phi1 * (1 - phi2) * cos(2 * pi * x) -
+            2 * phi2 * cos(4 * pi * x))
 }
 
 # simulate time series realization from a single theoretical spectrum
