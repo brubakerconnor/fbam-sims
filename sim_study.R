@@ -60,10 +60,10 @@ while (nsuccess < nsim & nfail < nsim) {
     FBAM_RUNTIME <- as.numeric(Sys.time() - FBAM_START_TIME, units = "secs")
     cat("Completed in", FBAM_RUNTIME, " seconds.\n")
 
-    nsuccess <- nsuccess + 1
     cat("Saving results to disk...\n")
-    output_data[[nsuccess]] <- list(data = dat, fbam_out = out, time = FBAM_RUNTIME)
+    output_data[[nsuccess + 1]] <- list(data = dat, fbam_out = out, time = FBAM_RUNTIME)
     save(output_data, file = data_fname)
+    nsuccess <- nsuccess + 1
   }, error = function(e) {
     assign("nfail", nfail + 1, env=globalenv())
     cat('\n', str(e), '\n')
