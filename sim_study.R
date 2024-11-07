@@ -65,8 +65,8 @@ while (nsuccess < nsim & nfail < nsim) {
     output_data[[nsuccess]] <- list(data = dat, fbam_out = out, time = FBAM_RUNTIME)
     save(output_data, file = data_fname)
   }, error = function(e) {
-    cat("Failed with error\n\n", str(e), "\n")
-    nfail <- nfail + 1
+    assign("nfail", nfail + 1, env=globalenv())
+    cat('\n', str(e), '\n')
   })
 }
 cat("\n\nRUN COMPLETED", format(Sys.time(), usetz = TRUE), "\n")
