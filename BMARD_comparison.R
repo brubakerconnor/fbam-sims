@@ -19,9 +19,9 @@ nclust <- as.integer(args[6])
 results_dir <- args[7]
 
 # BMARD parameters
-nsamples <- 500     # number of MCMC samples
-nchains <- 3        # number of MCMC chains
-sample_freq <- 1    # sample frequency
+nsamples <- 50000       # number of MCMC samples
+nchains <- 4            # number of MCMC chains
+sample_freq <- 1        # sample frequency
 
 # seed for reproducibility and load required libraries
 set.seed(541)
@@ -85,16 +85,16 @@ while (nsuccess < nsim & nfail < nsim) {
 
     ## process BMARD samples for each replicate
     cat("Processing samples...\n")
-    out <- data.frame()
-    for (i in 1:ncol(dat$x)) {
+    out <- parallel::mclapply(1:ncol(dat$x), function(i) {
       rep_start <- (nchains * (i - 1) + 1) # first chain of current replicate TS
       rep_end <- rep_start + (nchains - 1) # last chain of current replicate TS
-      BDPout <- BDP[rep_start:rep_end] # all MCMC chains for the current replicate TS
+      BDP_rep <- BDP[rep_start:rep_end] # all MCMC chains for the current replicate TS
       try({
-        listmodes <- modes_extraction_gaussianmix(dat = BDPout, threshold_weight = .01,
+        # keep only the last 10% of samples (discard the first 90% as burn-in)
+        listmodes <- modes_extraction_gaussianmix(dat = BDP_rep, threshold_weight = .01,
                                                   chains = nchains, Nsamp = nsamples,
                                                   freq_rate = nrow(dat$x), quant = .9,
-                                                  percsamp = .6, qlow = .025, qsup = .975)
+                                                  percsamp = .1, qlow = .025, qsup = .975)
       })
       peaks <- c(0, sort(listmodes$globalcenter[1,]), 0.5)
       endpoints <- peaks[1:(length(peaks) - 1)] + diff(peaks) / 2
@@ -113,15 +113,15 @@ while (nsuccess < nsim & nfail < nsim) {
       expanded <- rep(collapsed, diff(c(1, endpoints_index, nfreq + 1)))
       clust_loss <- sum((clust_spec - expanded)^2) / (2 * (nfreq + 1))
 
-      new.row <- data.frame(
+      return(data.frame(
         peaks = I(list(peaks)),
         endpoints = I(list(endpoints)),
         endpoints_index = I(list(endpoints_index)),
         clust_loss = clust_loss,
         label = kmlabels[i]
-      )
-      out <- rbind(out, new.row)
-    }
+      ))
+    }, mc.cores = ncores)
+    out <- do.call(rbind, out)
 
     ## aggregate by cluster and compute average endpoints and bandwidths
     endpoints <- list()
