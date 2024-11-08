@@ -39,7 +39,7 @@ model1 <- function(nrep, len) {
 # Model 2 ####
 # peaks:        vector of 3 marginal peak locations
 # bw:           vector of 3 marginal bandwidths
-model2 <- function(nrep, len, peaks, bw, sd = 2) {
+model2 <- function(nrep, len, peaks, bw, sd = 2.25) {
   labels <- rep(1:3, each = nrep)
   freq <- seq(0, 0.5, length = 250) # true frequencies
   spec <- matrix(nrow = 250, ncol = 3 * nrep) # true spectra
@@ -75,36 +75,18 @@ model2a <- function(nrep, len) {
 # model2b - medium overlap between peaks
 model2b <- function(nrep, len) {
   peaks <- c(0.21, 0.25, 0.29)
-  bw <- c(0.155, 0.15, 0.155)
+  # bw <- c(0.155, 0.15, 0.155)
+  bw <- c(0.15, 0.16, 0.2)
   return(model2(nrep, len, peaks, bw))
 }
 
 # model2c - least overlap between peaks
 model2c <- function(nrep, len) {
   peaks <- c(0.19, 0.25, 0.31)
-  bw <- c(0.165, 0.15, 0.165)
+  # bw <- c(0.165, 0.15, 0.165)
+  bw <- c(0.15, 0.165, 0.205)
   return(model2(nrep, len, peaks, bw))
 }
-
-# Model 3 ####
-# model3 <- function(nrep, len) {
-#   phi1_lower <- c(0.35, 0.85)
-#   phi1_upper <- c(0.45, 0.95)
-#   labels <- rep(1:2, each = nrep)
-#   freq <- seq(0, 0.5, length = 250)
-#   spec <- matrix(nrow = 250, ncol = 2 * nrep)
-#   x <- matrix(nrow = len, ncol = 2 * nrep)
-#   for(i in 1:nrep) {
-#     phi1_rep <- runif(length(phi1_lower), phi1_lower, phi1_upper)
-#     spec[, i] <- ar1_spec(freq, phi1_rep[1], 1)
-#     spec[, nrep + i] <- ar1_spec(freq, phi1_rep[2], 1)
-#     x[, i] <- arima.sim(list(ar = phi1_rep[1]), n = len, sd = 1)
-#     x[, nrep + i] <- arima.sim(list(ar = phi1_rep[2]), n = len, sd = 1)
-#   }
-#   mtout <- fbam::sine_mt(x)
-#   return(list(x = x, labels = labels, freq = freq, spec = spec,
-#               mtfreq = mtout$mtfreq, mtspec = mtout$mtspec))
-# }
 
 model3 <- function(nrep, len) {
   freq <- seq(0, 0.5, length = 250)
@@ -120,17 +102,17 @@ model3 <- function(nrep, len) {
     xspec[, i] <- ar2_spec(freq, phi1[1], phi2[1], 1)
     xspec[, nrep + i] <- ar2_spec(freq, phi1[2], phi2[2], 1)
     xspec[, 2 * nrep + i] <- ar2_spec(freq, phi1[3], phi2[3], 1)
-    x[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 2.5)
-    x[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 2.5)
-    x[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 2.5)
+    x[, i] <- arima.sim(list(ar = c(phi1[1], phi2[1])), n = len, sd = 1)
+    x[, nrep + i] <- arima.sim(list(ar = c(phi1[2], phi2[2])), n = len, sd = 1)
+    x[, 2 * nrep + i] <- arima.sim(list(ar = c(phi1[3], phi2[3])), n = len, sd = 1)
   }
 
   # ar2 processes
   y <- matrix(nrow = len, ncol = 3 * nrep)
   yspec <- matrix(nrow = 250, ncol = 3 * nrep)
   for (i in 1:nrep) {
-    peaks_rep <- c(0.2, 0.26, 0.32) + runif(3, -0.015, 0.015)
-    bw_rep <- c(0.05, 0.065, 0.095) #+ runif(3, -0.005, 0.005)
+    peaks_rep <- c(0.25, 0.3, 0.35) + runif(3, -0.015, 0.015)
+    bw_rep <- c(0.15, 0.15, 0.15) #+ runif(3, -0.005, 0.005)
     phi1 <- 2 * cos(2 * pi * peaks_rep) * exp(-bw_rep)
     phi2 <- -exp(-2 * bw_rep)
     yspec[, i] <- ar2_spec(freq, phi1[1], phi2[1], 1)
@@ -179,11 +161,6 @@ piecewise_smooth_step <- function(x, values, breaks, delta = 0.025) {
     ), ncol = 4) %*% coefs[i, ]
   }
   return(y)
-}
-
-# ma1 spectrum
-ma1_spec <- function(x, theta, sd) {
-  sd^2 * (1 + theta^2 + 2 * theta * cos(2 * pi * x))
 }
 
 # ar1 spectrum
