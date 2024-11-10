@@ -19,8 +19,8 @@ nclust <- as.integer(args[6])
 results_dir <- args[7]
 
 # BMARD parameters
-nsamples <- 50000       # number of MCMC samples
-nchains <- 4            # number of MCMC chains
+nsamples <- 20000       # number of MCMC samples
+nchains <- 3            # number of MCMC chains
 sample_freq <- 1        # sample frequency
 
 # seed for reproducibility and load required libraries
@@ -94,7 +94,7 @@ while (nsuccess < nsim & nfail < nsim) {
         listmodes <- modes_extraction_gaussianmix(dat = BDP_rep, threshold_weight = .01,
                                                   chains = nchains, Nsamp = nsamples,
                                                   freq_rate = nrow(dat$x), quant = .9,
-                                                  percsamp = .1, qlow = .025, qsup = .975)
+                                                  percsamp = .6, qlow = .025, qsup = .975)
       })
       peaks <- c(0, sort(listmodes$globalcenter[1,]), 0.5)
       endpoints <- peaks[1:(length(peaks) - 1)] + diff(peaks) / 2
