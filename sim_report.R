@@ -14,9 +14,8 @@ for (fname in rda_files) {
   model_name <- stringr::str_extract(basename(fname), "^[^_]+")
   nrep <- as.integer(stringr::str_extract(basename(fname), "(?<=nrep=)\\d+"))
   len <- as.integer(stringr::str_extract(basename(fname), "(?<=len=)\\d+"))
-  pmutate <- output_data[[1]]$fbam_out$selected_solution$params$pmutate
   nsim <- length(output_data)
-  
+
   ari <- nsubpop <- nbands <- obj <- runtime <- rep(0, nsim)
   for (i in 1:nsim) {
     ari[i] <- mclust::adjustedRandIndex(
@@ -32,7 +31,6 @@ for (fname in rda_files) {
     model = model_name,
     nrep = nrep,
     len = len,
-    pmutate = pmutate,
     mean_ari = mean(ari, na.rm = T),
     se_ari = sd(ari, na.rm = T),
     mean_nsubpop = mean(nsubpop, na.rm = T),
@@ -51,5 +49,5 @@ for (fname in rda_files) {
   report <- rbind(report, new_row)
   rm(output_data)
 }
-write.csv(report, paste0(results_dir, "/summary_results.csv"), 
+write.csv(report, paste0(results_dir, "/summary_results.csv"),
           row.names = FALSE)
