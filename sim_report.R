@@ -29,6 +29,7 @@ for (fname in rda_files) {
   }
   new_row <- data.frame(
     model = model_name,
+    nsim = nsim,
     nrep = nrep,
     len = len,
     mean_ari = mean(ari, na.rm = T),
