@@ -1,34 +1,53 @@
 rm(list = ls())
+library(tidyverse)
+library(patchwork)
 set.seed(6)
 source("sim_models.R")
-
 if (!dir.exists('figures/')) dir.create('figures/')
-
 models <- c("model1", "model2a", "model2b", "model2c", "model3")
 model_names <- c("Model 1", "Model 2(a)", "Model 2(b)", "Model 2(c)", "Model 3")
-dat <- list()
-for (i in 1:length(models)) {
-  dat[[i]] <- get(models[i])(20, 500)
-}
+nrep <- 20; len <- 200
+dat <- lapply(1:length(models), function(i) {
+  get(models[i])(nrep, len)
+})
 
-colors <- c("grey70", "blue", "red")
-ltys <- c(1, 2, 6)
+# top row: underlying spectra
+spec_plots <- lapply(1:length(models), function(i) {
+  spec <- data.frame(cbind(dat[[i]]$freq, dat[[i]]$spec))
+  names(spec) <- c("freq", 1:ncol(dat[[i]]$x))
+  spec <- spec %>%
+    pivot_longer(cols = -freq, names_to = "rep", values_to = "spec") %>%
+    mutate(rep = as.integer(rep)) %>% arrange(rep) %>%
+    mutate(label = rep(dat[[i]]$labels, each = length(unique(freq))))
+  ggplot(spec, aes(x = freq, y = spec, group = rep, color = as.factor(label),
+                   linetype = as.factor(label))) +
+    geom_line(linewidth = 0.5) +
+    scale_linetype_manual(values = c("solid", "dashed", "dotted")) +
+    scale_color_manual(values = c("grey80", "red", "blue")) +
+    labs(x = "Frequency", y = "Power", title = model_names[i]) +
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.title = element_text(hjust = 0.5))
+})
+wrap_plots(spec_plots, nrow = 1)
 
-pdf('figures/sim_models.pdf', width = 18, height = 16)
-par(mfrow = c(4, 5))
-for (i in 1:5) matplot(dat[[i]]$freq, dat[[i]]$spec,
-                       col = colors[dat[[i]]$labels], type = 'l',
-                       lty = ltys[dat[[i]]$labels],
-                       xlab = 'Frequency', ylab = "Power",
-                       main = model_names[i])
-for (i in 1:3) {
-  for (j in 1:5) {
-    ts.plot(dat[[j]]$x[, which(dat[[j]]$labels == i)[1]],
-            xlab = 'Time', ylab = '',
-            ylim = c(min(dat[[j]]$x), max(dat[[j]]$x)),
-            main = paste0(model_names[j], ', Subpopulation ', i))
-  }
-}
+# next three rows: time series plot from each of the subpopulations of each model
+# each row corresponds to one subpopulation label
+x_plots <- unlist(lapply(1:3, function(i) {
+  lapply(1:length(models), function(j) {
+    ind <- sample(which(dat[[j]]$labels == i), size = 1)
+    x <- data.frame(time = 1:nrow(dat[[j]]$x), x = dat[[j]]$x[, ind])
+    ggplot(x, aes(x = time, y = x)) +
+      geom_line() +
+      labs(x = "Time", y = "", title = paste0("Subpopulation ", i)) +
+      theme_bw() +
+      theme(plot.title = element_text(hjust = 0.5))
+  })
+}), recursive = FALSE)
+
+pdf('figures/sim_models.pdf', width = 10, height = 8)
+wrap_plots(c(spec_plots, x_plots), nrow = 4)
 dev.off()
+
 
 
