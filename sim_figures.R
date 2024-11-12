@@ -10,6 +10,7 @@ nrep <- 20; len <- 200
 dat <- lapply(1:length(models), function(i) {
   get(models[i])(nrep, len)
 })
+colors <- c("black", "red", "blue")
 
 # top row: underlying spectra
 spec_plots <- lapply(1:length(models), function(i) {
@@ -23,7 +24,7 @@ spec_plots <- lapply(1:length(models), function(i) {
                    linetype = as.factor(label))) +
     geom_line(linewidth = 0.5) +
     scale_linetype_manual(values = c("solid", "dashed", "dotted")) +
-    scale_color_manual(values = c("grey80", "red", "blue")) +
+    scale_color_manual(values = colors) +
     labs(x = "Frequency", y = "Power", title = model_names[i]) +
     theme_bw() +
     theme(legend.position = "none",
@@ -38,14 +39,14 @@ x_plots <- unlist(lapply(1:3, function(i) {
     ind <- sample(which(dat[[j]]$labels == i), size = 1)
     x <- data.frame(time = 1:nrow(dat[[j]]$x), x = dat[[j]]$x[, ind])
     ggplot(x, aes(x = time, y = x)) +
-      geom_line() +
+      geom_line(color = colors[i]) +
       labs(x = "Time", y = "", title = paste0("Subpopulation ", i)) +
       theme_bw() +
       theme(plot.title = element_text(hjust = 0.5))
   })
 }), recursive = FALSE)
 
-pdf('figures/sim_models.pdf', width = 10, height = 8)
+pdf('figures/sim_models.pdf', width = 20, height = 16)
 wrap_plots(c(spec_plots, x_plots), nrow = 4)
 dev.off()
 
